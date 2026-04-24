@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Pedidos — Admin{% endblock %}
+{% block content %}
+<div class="container">
+  <div style="margin-bottom:2rem">
+    <h1 class="page-title" style="margin-bottom:0.25rem">📋 Todos os Pedidos</h1>
+    <a href="/admin" style="color:var(--muted);font-size:0.85rem;text-decoration:none">← Voltar ao admin</a>
+  </div>
+
+  <div class="card" style="padding:0;overflow:hidden;overflow-x:auto">
+    <table>
+      <thead>
+        <tr><th>#</th><th>Usuário</th><th>Produto</th><th>Valor</th><th>Método</th><th>Status</th><th>Data</th></tr>
+      </thead>
+      <tbody>
+        {% for o in orders %}
+        <tr>
+          <td style="color:var(--muted)">#{{ o.id }}</td>
+          <td>
+            <div style="font-weight:600">{{ o.first_name or o.username or '—' }}</div>
+            {% if o.username %}<div style="color:var(--muted);font-size:0.8rem">@{{ o.username }}</div>{% endif %}
+          </td>
+          <td>{{ o.product_name }}</td>
+          <td>R$ {{ "%.2f"|format(o.price) }}</td>
+          <td style="color:var(--muted)">{{ o.payment_method }}</td>
+          <td>
+            {% if o.status == 'completed' %}
+              <span class="badge badge-green">✅ Entregue</span>
+            {% elif o.status == 'pending' %}
+              <span class="badge badge-yellow">⏳ Pendente</span>
+            {% else %}
+              <span class="badge badge-red">❌ Rejeitado</span>
+            {% endif %}
+          </td>
+          <td style="color:var(--muted);font-size:0.8rem">{{ o.created_at[:16] }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:3rem">Nenhum pedido ainda.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

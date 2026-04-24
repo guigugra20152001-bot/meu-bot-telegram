@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Meus Pedidos — Contas Full{% endblock %}
+{% block content %}
+<div class="container">
+  <h1 class="page-title">📦 Meus Pedidos</h1>
+  <p class="page-sub">Histórico de todas as suas compras</p>
+
+  {% if orders %}
+  <div class="card" style="padding:0;overflow:hidden">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Produto</th>
+          <th>Valor</th>
+          <th>Status</th>
+          <th>Data</th>
+          <th>Credenciais</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for o in orders %}
+        <tr>
+          <td style="color:var(--muted)">#{{ o.id }}</td>
+          <td style="font-weight:600">{{ o.product_name }}</td>
+          <td>R$ {{ "%.2f"|format(o.price) }}</td>
+          <td>
+            {% if o.status == 'completed' %}
+              <span class="badge badge-green">✅ Entregue</span>
+            {% elif o.status == 'pending' %}
+              <span class="badge badge-yellow">⏳ Pendente</span>
+            {% else %}
+              <span class="badge badge-red">❌ Rejeitado</span>
+            {% endif %}
+          </td>
+          <td style="color:var(--muted);font-size:0.85rem">{{ o.created_at[:16] }}</td>
+          <td>
+            {% if o.credentials %}
+            <button class="btn btn-ghost btn-sm" onclick="verConta('{{ o.credentials }}')">Ver conta</button>
+            {% else %}
+            <span style="color:var(--muted);font-size:0.85rem">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card" style="text-align:center;padding:4rem">
+    <div style="font-size:3rem;margin-bottom:1rem">📭</div>
+    <div style="font-size:1.1rem;font-weight:600;margin-bottom:0.5rem">Nenhum pedido ainda</div>
+    <div style="color:var(--muted);margin-bottom:1.5rem">Vá para a loja e faça sua primeira compra!</div>
+    <a href="/loja" class="btn btn-primary">Ir para a Loja</a>
+  </div>
+  {% endif %}
+</div>
+
+<div class="modal-overlay" id="modal-conta">
+  <div class="modal" style="text-align:center">
+    <button class="modal-close" onclick="closeModal('modal-conta')">✕</button>
+    <div class="modal-title">🔑 Credenciais</div>
+    <div id="cred-text" style="background:var(--surface);border:1px solid var(--border);
+      border-radius:12px;padding:1.25rem;font-family:monospace;font-size:0.9rem;
+      word-break:break-all;margin-bottom:1.25rem;text-align:left"></div>
+    <button class="btn btn-primary btn-full" onclick="copiarCred()">📋 Copiar</button>
+  </div>
+</div>
+
+<script>
+function verConta(cred) {
+  document.getElementById('cred-text').textContent = cred;
+  openModal('modal-conta');
+}
+function copiarCred() {
+  navigator.clipboard.writeText(document.getElementById('cred-text').textContent);
+  toast('Credenciais copiadas!');
+}
+</script>
+{% endblock %}

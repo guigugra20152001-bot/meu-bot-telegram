@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block title %}Loja — Contas Full{% endblock %}
+{% block content %}
+<div class="container">
+  <h1 class="page-title">🛍️ Loja</h1>
+  <p class="page-sub">Escolha a categoria e a quantidade desejada</p>
+
+  <!-- Categorias tabs -->
+  <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:2rem;">
+    {% for cat in categories %}
+    <button class="tab-btn btn btn-ghost" onclick="showCategory({{ cat.id }})" id="tab-{{ cat.id }}">
+      {{ cat.emoji }} {{ cat.name }}
+    </button>
+    {% endfor %}
+  </div>
+
+  <!-- Produtos por categoria -->
+  {% for cat in categories %}
+  <div class="cat-section" id="cat-{{ cat.id }}" style="display:none">
+    <div class="grid-2">
+      {% for p in cat.products %}
+      <div class="card product-card" style="position:relative">
+        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:1rem">
+          <div>
+            <div style="font-weight:700;font-size:1.05rem;margin-bottom:0.25rem">{{ p.name }}</div>
+            {% if p.description %}
+            <div style="color:var(--muted);font-size:0.85rem">{{ p.description }}</div>
+            {% endif %}
+          </div>
+          <span class="badge {% if p.stock > 0 %}badge-green{% else %}badge-red{% endif %}">
+            {{ p.stock }} un.
+          </span>
+        </div>
+
+        <div style="font-size:1.6rem;font-weight:800;font-family:'Syne',sans-serif;
+          background:linear-gradient(135deg,var(--accent),var(--accent2));
+          -webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:1rem">
+          R$ {{ "%.2f"|format(p.price) }}
+        </div>
+
+        {% if p.stock > 0 %}
+        <div style="display:flex;gap:0.5rem;align-items:center">
+          <div style="display:flex;align-items:center;gap:0.5rem;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.25rem 0.5rem">
+            <button onclick="changeQty({{ p.id }}, -1)" style="background:none;border:none;color:var(--text);cursor:pointer;font-size:1.1rem;padding:0.1rem 0.3rem">−</button>
+            <span id="qty-{{ p.id }}" style="min-width:24px;text-align:center;font-weight:600">1</span>
+            <button onclick="changeQty({{ p.id }}, 1, {{ p.stock }})" style="background:none;border:none;color:var(--text);cursor:pointer;font-size:1.1rem;padding:0.1rem 0.3rem">+</button>
+          </div>
+          <button class="btn btn-primary" style="flex:1" onclick="comprar({{ p.id }}, {{ p.price }}, '{{ p.name }}')">
+            Comprar
+          </button>
+        </div>
+        <div style="font-size:0.8rem;color:var(--muted);margin-top:0.5rem">
+          Total: <strong id="total-{{ p.id }}">R$ {{ "%.2f"|format(p.price) }}</strong>
+        </div>
+        {% else %}
+        <button class="btn btn-ghost btn-full" disabled>Esgotado</button>
+        {% endif %}
+      </div>
+      {% else %}
+      <div style="grid-column:1/-1;text-align:center;color:var(--muted);padding:3rem">
+        😔 Nenhum produto nessa categoria ainda.
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Modal de confirmação -->
+<div class="modal-overlay" id="modal-compra">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-compra')">✕</button>
+    <div class="modal-title">✅ Confirmar Compra</div>
+    <div style="background:var(--surface);border-radius:12px;padding:1.25rem;margin-bottom:1.5rem">
+      <div style="display:flex;justify-content:space-between;margin-bottom:0.5rem">
+        <span style="color:var(--muted)">Produto</span>
+        <span id="conf-nome" style="font-weight:600"></span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:0.5rem">
+        <span style="color:var(--muted)">Quantidade</span>
+        <span id="conf-qty" style="font-weight:600"></span>
+      </div>
+      <div style="display:flex;justify-content:space-between">
+        <span style="color:var(--muted)">Total</span>
+        <span id="conf-total" style="font-weight:800;font-size:1.1rem;color:var(--accent)"></span>
+      </div>
+    </div>
+    <div style="color:var(--muted);font-size:0.85rem;margin-bottom:1.5rem">
+      💰 Seu saldo: <strong style="color:var(--green)">R$ {{ "%.2f"|format(user.balance if user else 0) }}</strong>
+    </div>
+    <div style="display:flex;gap:0.75rem">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('modal-compra')">Cancelar</button>
+      <button class="btn btn-success" style="flex:1" onclick="confirmarCompra()">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal resultado -->
+<div class="modal-overlay" id="modal-resultado">
+  <div class="modal" style="text-align:center">
+    <div style="font-size:3rem;margin-bottom:1rem">🎉</div>
+    <div class="modal-title">Compra Realizada!</div>
+    <div style="color:var(--muted);margin-bottom:1.5rem">Suas contas foram entregues:</div>
+    <div id="contas-resultado" style="background:var(--surface);border-radius:12px;padding:1rem;
+      font-family:monospace;font-size:0.85rem;text-align:left;white-space:pre-wrap;word-break:break-all;
+      border:1px solid var(--border);max-height:200px;overflow-y:auto;margin-bottom:1.5rem"></div>
+    <button class="btn btn-primary btn-full" onclick="closeModal('modal-resultado');location.reload()">Fechar</button>
+  </div>
+</div>
+
+<script>
+const qtys = {};
+let pendingProduct = null, pendingPrice = 0, pendingNome = '';
+
+function showCategory(id) {
+  document.querySelectorAll('.cat-section').forEach(s => s.style.display = 'none');
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('btn-primary'));
+  document.getElementById('cat-' + id).style.display = 'block';
+  document.getElementById('tab-' + id).classList.add('btn-primary');
+  document.getElementById('tab-' + id).classList.remove('btn-ghost');
+}
+
+function changeQty(pid, delta, max) {
+  qtys[pid] = (qtys[pid] || 1) + delta;
+  if (qtys[pid] < 1) qtys[pid] = 1;
+  if (max && qtys[pid] > max) qtys[pid] = max;
+  document.getElementById('qty-' + pid).textContent = qtys[pid];
+  const priceEl = document.querySelector(`[onclick*="comprar(${pid},"]`);
+  if (priceEl) {
+    const price = parseFloat(priceEl.getAttribute('onclick').match(/comprar\(\d+,\s*([\d.]+)/)[1]);
+    document.getElementById('total-' + pid).textContent = 'R$ ' + (price * qtys[pid]).toFixed(2);
+  }
+}
+
+function comprar(pid, price, nome) {
+  pendingProduct = pid;
+  pendingPrice = price;
+  pendingNome = nome;
+  const qty = qtys[pid] || 1;
+  document.getElementById('conf-nome').textContent = nome;
+  document.getElementById('conf-qty').textContent = qty + 'x';
+  document.getElementById('conf-total').textContent = 'R$ ' + (price * qty).toFixed(2);
+  openModal('modal-compra');
+}
+
+async function confirmarCompra() {
+  const qty = qtys[pendingProduct] || 1;
+  const btn = document.querySelector('#modal-compra .btn-success');
+  btn.textContent = 'Processando...'; btn.disabled = true;
+
+  const res = await api('/api/comprar', { product_id: pendingProduct, quantidade: qty });
+  btn.textContent = 'Confirmar'; btn.disabled = false;
+
+  if (res.ok) {
+    closeModal('modal-compra');
+    document.getElementById('contas-resultado').textContent = res.contas.join('\n');
+    openModal('modal-resultado');
+  } else {
+    toast(res.error || 'Erro ao comprar', 'error');
+  }
+}
+
+// Mostrar primeira categoria
+document.addEventListener('DOMContentLoaded', () => {
+  const first = document.querySelector('.tab-btn');
+  if (first) first.click();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Saldo — Contas Full{% endblock %}
+{% block content %}
+<div class="container" style="max-width:600px">
+  <h1 class="page-title">💰 Meu Saldo</h1>
+  <p class="page-sub">Adicione saldo para comprar na loja</p>
+
+  <!-- Saldo atual -->
+  <div class="card" style="text-align:center;margin-bottom:2rem;background:linear-gradient(135deg,rgba(124,58,237,0.1),rgba(6,182,212,0.1));border-color:rgba(124,58,237,0.3)">
+    <div style="color:var(--muted);font-size:0.9rem;margin-bottom:0.5rem">Saldo Disponível</div>
+    <div style="font-size:3rem;font-weight:800;font-family:'Syne',sans-serif;
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent">
+      R$ {{ "%.2f"|format(user.balance if user else 0) }}
+    </div>
+  </div>
+
+  <!-- Adicionar saldo -->
+  <div class="card">
+    <h3 style="margin-bottom:1.5rem;font-size:1.1rem">➕ Adicionar Saldo via PIX</h3>
+
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.5rem;margin-bottom:1.5rem">
+      {% for v in [5, 10, 20, 50, 100, 200] %}
+      <button class="btn btn-ghost valor-btn" onclick="setValor({{ v }})">R$ {{ v }}</button>
+      {% endfor %}
+    </div>
+
+    <div class="form-group">
+      <label>Valor personalizado (mínimo R$ 5,00)</label>
+      <input type="number" id="valor-input" placeholder="0.00" min="5" step="0.01"
+        oninput="document.querySelectorAll('.valor-btn').forEach(b=>b.classList.remove('btn-primary','btn-ghost'),b.classList.add('btn-ghost'))">
+    </div>
+
+    <button class="btn btn-primary btn-full" onclick="gerarPix()" style="margin-top:0.5rem">
+      Gerar QR Code PIX
+    </button>
+  </div>
+
+  <!-- PIX resultado -->
+  <div id="pix-result" class="card" style="display:none;margin-top:1.5rem;text-align:center">
+    <h3 style="margin-bottom:1.5rem">📱 Escaneie o QR Code</h3>
+    <img id="pix-qr" src="" alt="QR Code PIX" style="width:200px;height:200px;border-radius:12px;margin-bottom:1.25rem">
+    <div style="color:var(--muted);font-size:0.85rem;margin-bottom:0.75rem">Ou copie o código PIX:</div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:0.75rem;
+      font-family:monospace;font-size:0.75rem;word-break:break-all;margin-bottom:1rem;
+      cursor:pointer;position:relative" onclick="copiarPix()" title="Clique para copiar">
+      <span id="pix-code" style="opacity:0.8"></span>
+      <span style="position:absolute;top:50%;right:0.75rem;transform:translateY(-50%);font-size:1rem">📋</span>
+    </div>
+    <div style="color:var(--muted);font-size:0.85rem;margin-bottom:1.25rem">
+      ⏱️ Aguardando pagamento... <span id="timer">5:00</span>
+    </div>
+    <div id="pix-status" class="badge badge-yellow" style="margin:0 auto 1rem">⏳ Pendente</div>
+    <button class="btn btn-ghost btn-full" onclick="document.getElementById('pix-result').style.display='none'">Cancelar</button>
+  </div>
+</div>
+
+<script>
+let checkInterval, timerInterval, currentPaymentId;
+
+function setValor(v) {
+  document.getElementById('valor-input').value = v;
+  document.querySelectorAll('.valor-btn').forEach(b => {
+    b.className = 'btn btn-ghost valor-btn';
+  });
+  event.target.className = 'btn btn-primary valor-btn';
+}
+
+async function gerarPix() {
+  const amount = parseFloat(document.getElementById('valor-input').value);
+  if (!amount || amount < 5) { toast('Valor mínimo é R$ 5,00', 'error'); return; }
+
+  const btn = document.querySelector('[onclick="gerarPix()"]');
+  btn.textContent = 'Gerando PIX...'; btn.disabled = true;
+
+  const res = await api('/api/saldo/pix', { amount });
+  btn.textContent = 'Gerar QR Code PIX'; btn.disabled = false;
+
+  if (res.qr_code) {
+    currentPaymentId = res.payment_id;
+    document.getElementById('pix-code').textContent = res.qr_code;
+    if (res.qr_code_base64) {
+      document.getElementById('pix-qr').src = 'data:image/png;base64,' + res.qr_code_base64;
+    }
+    document.getElementById('pix-result').style.display = 'block';
+    document.getElementById('pix-result').scrollIntoView({ behavior: 'smooth' });
+    startTimer(300);
+    startCheck();
+  } else {
+    toast(res.error || 'Erro ao gerar PIX. Configure o token do Mercado Pago.', 'error');
+  }
+}
+
+function copiarPix() {
+  navigator.clipboard.writeText(document.getElementById('pix-code').textContent);
+  toast('Código PIX copiado!');
+}
+
+function startTimer(seconds) {
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    document.getElementById('timer').textContent = `${m}:${s.toString().padStart(2,'0')}`;
+    if (--seconds < 0) { clearInterval(timerInterval); clearInterval(checkInterval); }
+  }, 1000);
+}
+
+function startCheck() {
+  clearInterval(checkInterval);
+  checkInterval = setInterval(async () => {
+    const r = await fetch('/api/saldo/check/' + currentPaymentId);
+    const data = await r.json();
+    if (data.status === 'approved') {
+      clearInterval(checkInterval); clearInterval(timerInterval);
+      document.getElementById('pix-status').textContent = '✅ Pago!';
+      document.getElementById('pix-status').className = 'badge badge-green';
+      toast(`✅ R$ ${data.amount?.toFixed(2)} adicionado ao seu saldo!`);
+      setTimeout(() => location.reload(), 2000);
+    }
+  }, 5000);
+}
+</script>
+{% endblock %}

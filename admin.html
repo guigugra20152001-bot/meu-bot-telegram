@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Admin — Contas Full{% endblock %}
+{% block content %}
+<div class="container">
+  <h1 class="page-title">⚙️ Painel Admin</h1>
+
+  <!-- Stats -->
+  <div class="grid-4" style="margin-bottom:2rem">
+    <div class="stat-card">
+      <div class="stat-value" style="color:var(--accent)">{{ stats.users }}</div>
+      <div class="stat-label">👥 Usuários</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" style="color:var(--accent2)">{{ stats.completed }}</div>
+      <div class="stat-label">✅ Vendas</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" style="color:var(--green)">R$ {{ "%.0f"|format(stats.revenue) }}</div>
+      <div class="stat-label">💰 Faturamento</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" style="color:var(--yellow)">{{ stats.stock }}</div>
+      <div class="stat-label">📦 Estoque</div>
+    </div>
+  </div>
+
+  <!-- Menu admin -->
+  <div class="grid-2" style="margin-bottom:2rem">
+    <a href="/admin/produtos" class="card" style="text-decoration:none;display:flex;align-items:center;gap:1rem">
+      <div style="font-size:2rem">🛍️</div>
+      <div>
+        <div style="font-weight:700;margin-bottom:0.25rem">Gerenciar Produtos</div>
+        <div style="color:var(--muted);font-size:0.85rem">Adicionar e remover produtos e categorias</div>
+      </div>
+    </a>
+    <a href="/admin/estoque" class="card" style="text-decoration:none;display:flex;align-items:center;gap:1rem">
+      <div style="font-size:2rem">📦</div>
+      <div>
+        <div style="font-weight:700;margin-bottom:0.25rem">Gerenciar Estoque</div>
+        <div style="color:var(--muted);font-size:0.85rem">Adicionar contas ao estoque</div>
+      </div>
+    </a>
+    <a href="/admin/pedidos" class="card" style="text-decoration:none;display:flex;align-items:center;gap:1rem">
+      <div style="font-size:2rem">📋</div>
+      <div>
+        <div style="font-weight:700;margin-bottom:0.25rem">Ver Pedidos</div>
+        <div style="color:var(--muted);font-size:0.85rem">{{ stats.pending }} pedidos pendentes</div>
+      </div>
+    </a>
+    <div class="card" style="cursor:pointer;display:flex;align-items:center;gap:1rem" onclick="openModal('modal-saldo')">
+      <div style="font-size:2rem">💳</div>
+      <div>
+        <div style="font-weight:700;margin-bottom:0.25rem">Adicionar Saldo</div>
+        <div style="color:var(--muted);font-size:0.85rem">Creditar saldo para um usuário</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal add saldo -->
+<div class="modal-overlay" id="modal-saldo">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-saldo')">✕</button>
+    <div class="modal-title">💳 Adicionar Saldo</div>
+    <div class="form-group">
+      <label>ID do Usuário (Telegram)</label>
+      <input type="number" id="s-userid" placeholder="Ex: 123456789">
+    </div>
+    <div class="form-group">
+      <label>Valor (R$)</label>
+      <input type="number" id="s-amount" placeholder="0.00" min="0.01" step="0.01">
+    </div>
+    <div style="display:flex;gap:0.75rem;margin-top:1rem">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('modal-saldo')">Cancelar</button>
+      <button class="btn btn-success" style="flex:1" onclick="addSaldo()">Adicionar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+async function addSaldo() {
+  const uid = document.getElementById('s-userid').value;
+  const amt = document.getElementById('s-amount').value;
+  if (!uid || !amt) { toast('Preencha todos os campos', 'error'); return; }
+  const res = await api('/api/admin/saldo', { user_id: uid, amount: amt });
+  if (res.ok) { toast('Saldo adicionado!'); closeModal('modal-saldo'); }
+  else toast(res.error || 'Erro', 'error');
+}
+</script>
+{% endblock %}

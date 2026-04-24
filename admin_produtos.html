@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Produtos — Admin{% endblock %}
+{% block content %}
+<div class="container">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2rem">
+    <div>
+      <h1 class="page-title" style="margin-bottom:0.25rem">🛍️ Produtos & Categorias</h1>
+      <a href="/admin" style="color:var(--muted);font-size:0.85rem;text-decoration:none">← Voltar ao admin</a>
+    </div>
+    <div style="display:flex;gap:0.5rem">
+      <button class="btn btn-ghost" onclick="openModal('modal-cat')">+ Categoria</button>
+      <button class="btn btn-primary" onclick="openModal('modal-prod')">+ Produto</button>
+    </div>
+  </div>
+
+  {% for cat in categories %}
+  <div class="card" style="margin-bottom:1.25rem">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <div style="font-size:1.1rem;font-weight:700">{{ cat.emoji }} {{ cat.name }}</div>
+      <button class="btn btn-danger btn-sm" onclick="delCategoria({{ cat.id }})">Excluir cat.</button>
+    </div>
+    {% if cat.products %}
+    <table>
+      <thead><tr><th>Nome</th><th>Preço</th><th>Estoque</th><th>Ação</th></tr></thead>
+      <tbody>
+        {% for p in cat.products %}
+        <tr>
+          <td>{{ p.name }}</td>
+          <td>R$ {{ "%.2f"|format(p.price) }}</td>
+          <td><span class="badge {% if p.stock > 0 %}badge-green{% else %}badge-red{% endif %}">{{ p.stock }}</span></td>
+          <td><button class="btn btn-danger btn-sm" onclick="delProduto({{ p.id }})">Excluir</button></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div style="color:var(--muted);font-size:0.85rem;padding:0.5rem">Nenhum produto nesta categoria.</div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Modal nova categoria -->
+<div class="modal-overlay" id="modal-cat">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-cat')">✕</button>
+    <div class="modal-title">📁 Nova Categoria</div>
+    <div class="form-group">
+      <label>Emoji</label>
+      <input type="text" id="c-emoji" placeholder="📸" maxlength="2" style="width:80px">
+    </div>
+    <div class="form-group">
+      <label>Nome</label>
+      <input type="text" id="c-name" placeholder="Ex: Instagram">
+    </div>
+    <div style="display:flex;gap:0.75rem;margin-top:1rem">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('modal-cat')">Cancelar</button>
+      <button class="btn btn-primary" style="flex:1" onclick="addCategoria()">Criar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal novo produto -->
+<div class="modal-overlay" id="modal-prod">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-prod')">✕</button>
+    <div class="modal-title">📦 Novo Produto</div>
+    <div class="form-group">
+      <label>Categoria</label>
+      <select id="p-cat">
+        {% for cat in categories %}
+        <option value="{{ cat.id }}">{{ cat.emoji }} {{ cat.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Nome do Produto</label>
+      <input type="text" id="p-name" placeholder="Ex: Conta Verificada">
+    </div>
+    <div class="form-group">
+      <label>Preço (R$)</label>
+      <input type="number" id="p-price" placeholder="0.00" min="0.01" step="0.01">
+    </div>
+    <div class="form-group">
+      <label>Descrição (opcional)</label>
+      <input type="text" id="p-desc" placeholder="Ex: Com 1000 seguidores">
+    </div>
+    <div style="display:flex;gap:0.75rem;margin-top:1rem">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('modal-prod')">Cancelar</button>
+      <button class="btn btn-primary" style="flex:1" onclick="addProduto()">Criar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+async function addCategoria() {
+  const res = await api('/api/admin/categoria', {
+    name: document.getElementById('c-name').value,
+    emoji: document.getElementById('c-emoji').value || '📦'
+  });
+  if (res.ok) { toast('Categoria criada!'); setTimeout(() => location.reload(), 1000); }
+  else toast(res.error || 'Erro', 'error');
+}
+async function addProduto() {
+  const res = await api('/api/admin/produto', {
+    category_id: document.getElementById('p-cat').value,
+    name: document.getElementById('p-name').value,
+    price: document.getElementById('p-price').value,
+    description: document.getElementById('p-desc').value
+  });
+  if (res.ok) { toast('Produto criado!'); setTimeout(() => location.reload(), 1000); }
+  else toast(res.error || 'Erro', 'error');
+}
+async function delCategoria(id) {
+  if (!confirm('Excluir esta categoria?')) return;
+  const res = await fetch('/api/admin/categoria/' + id, { method: 'DELETE' });
+  const data = await res.json();
+  if (data.ok) { toast('Categoria excluída!'); setTimeout(() => location.reload(), 1000); }
+}
+async function delProduto(id) {
+  if (!confirm('Excluir este produto?')) return;
+  const res = await fetch('/api/admin/produto/' + id, { method: 'DELETE' });
+  const data = await res.json();
+  if (data.ok) { toast('Produto excluído!'); setTimeout(() => location.reload(), 1000); }
+}
+</script>
+{% endblock %}

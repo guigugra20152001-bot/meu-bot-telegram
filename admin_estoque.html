@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Estoque — Admin{% endblock %}
+{% block content %}
+<div class="container">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2rem">
+    <div>
+      <h1 class="page-title" style="margin-bottom:0.25rem">📦 Estoque</h1>
+      <a href="/admin" style="color:var(--muted);font-size:0.85rem;text-decoration:none">← Voltar ao admin</a>
+    </div>
+    <button class="btn btn-primary" onclick="openModal('modal-estoque')">+ Adicionar Contas</button>
+  </div>
+
+  <div class="card" style="padding:0;overflow:hidden">
+    <table>
+      <thead>
+        <tr><th>Categoria</th><th>Produto</th><th>Preço</th><th>Disponível</th><th>Ação</th></tr>
+      </thead>
+      <tbody>
+        {% for p in products %}
+        <tr>
+          <td style="color:var(--muted)">{{ p.category_name }}</td>
+          <td style="font-weight:600">{{ p.name }}</td>
+          <td>R$ {{ "%.2f"|format(p.price) }}</td>
+          <td>
+            <span class="badge {% if p.stock > 5 %}badge-green{% elif p.stock > 0 %}badge-yellow{% else %}badge-red{% endif %}">
+              {{ p.stock }} un.
+            </span>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="abrirEstoque({{ p.id }}, '{{ p.name }}')">
+              + Adicionar
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-estoque">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-estoque')">✕</button>
+    <div class="modal-title">📦 Adicionar Contas</div>
+    <div class="form-group">
+      <label>Produto</label>
+      <select id="e-product">
+        {% for p in products %}
+        <option value="{{ p.id }}">{{ p.name }} ({{ p.stock }} disponíveis)</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Credenciais (uma por linha)</label>
+      <textarea id="e-creds" rows="8" placeholder="email@exemplo.com:senha123&#10;outroemail@exemplo.com:outrasenha&#10;mais@email.com:senha456"></textarea>
+    </div>
+    <div style="color:var(--muted);font-size:0.8rem;margin-bottom:1rem">
+      💡 Coloque uma conta por linha no formato: <code>email:senha</code>
+    </div>
+    <div style="display:flex;gap:0.75rem">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('modal-estoque')">Cancelar</button>
+      <button class="btn btn-primary" style="flex:1" onclick="addEstoque()">Adicionar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function abrirEstoque(pid, nome) {
+  document.getElementById('e-product').value = pid;
+  openModal('modal-estoque');
+}
+async function addEstoque() {
+  const product_id = document.getElementById('e-product').value;
+  const credentials = document.getElementById('e-creds').value;
+  if (!credentials.trim()) { toast('Cole as credenciais', 'error'); return; }
+  const res = await api('/api/admin/estoque', { product_id, credentials });
+  if (res.ok) {
+    toast(`✅ ${res.adicionados} conta(s) adicionada(s)!`);
+    document.getElementById('e-creds').value = '';
+    closeModal('modal-estoque');
+    setTimeout(() => location.reload(), 1500);
+  } else toast(res.error || 'Erro', 'error');
+}
+</script>
+{% endblock %}
